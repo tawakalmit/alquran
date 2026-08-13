@@ -905,6 +905,7 @@ function HomeScreen({ onReadSurah }: { onReadSurah: (id: number, ayah?: number) 
         </button>
       </div>
 
+
       {/* Quick Access */}
       <div className="px-6 mt-7">
         <p className="serif-heading" style={{ color: 'var(--fg)', fontSize: '16px', fontWeight: 600, marginBottom: 14 }}>
@@ -927,6 +928,33 @@ function HomeScreen({ onReadSurah }: { onReadSurah: (id: number, ayah?: number) 
         ) : (
           <p style={{ color: 'var(--muted-fg)', fontSize: '13px', lineHeight: 1.7 }}>Tambahkan surah favorit dari halaman Surah.</p>
         )}
+      </div>
+
+      {/* Powered by */}
+      <div className="px-6 mt-7">
+        <div
+          className="rounded-xl p-4"
+          style={{
+            background: 'var(--card-bg)',
+            border: '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <p style={{ color: 'var(--muted-fg)', fontSize: '13px', lineHeight: 1.7, margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            API Powered by{' '}
+            <br />
+            <a
+              href="https://myquran.com/"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: 'var(--primary)', textDecoration: 'underline', textAlign: 'center' }}
+            >
+              myquran.com
+            </a>
+          </p>
+        </div>
       </div>
 
     </div>
