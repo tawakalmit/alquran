@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Holy Quran favicon">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0f766e" />
+      <stop offset="100%" stop-color="#14532d" />
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="16" fill="url(#bg)"/>
+
+  <path d="M20 18.5c4.8 0 8.7 2.8 10.3 6.7 1.6-3.9 5.5-6.7 10.3-6.7 5.8 0 10.4 4.7 10.4 10.5v18.3c0 5.8-4.7 10.5-10.5 10.5-4.6 0-8.5-2.9-10.1-6.8-1.6 3.9-5.5 6.8-10.1 6.8C14.7 58.8 10 54.1 10 48.3V29c0-5.8 4.7-10.5 10.5-10.5Z" fill="#f7f7f2" opacity="0.15"/>
+
+  <path d="M22 17.5c3.4 0 6.5 1.7 8.1 4.7 1.5-3 4.7-4.7 8.1-4.7 5.2 0 9.5 4.3 9.5 9.5v15.3c0 5.2-4.3 9.5-9.5 9.5-3.2 0-6.1-1.6-7.7-4.1-1.6 2.5-4.5 4.1-7.7 4.1-5.2 0-9.5-4.3-9.5-9.5V27c0-5.2 4.3-9.5 9.5-9.5Z" fill="#f8fafc"/>
+
+  <path d="M25 22.5v18.5m7-18.5v18.5M25 34h14" stroke="#14532d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M32.5 11.5c-2.8 2.5-4.4 5.7-4.4 9.2v6.1c0 1.1.9 2 2 2h5.8c1.1 0 2-.9 2-2v-6.1c0-3.5-1.6-6.7-4.4-9.2Z" fill="#d9f99d" opacity="0.9"/>
+</svg>

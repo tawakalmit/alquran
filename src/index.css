@@ -1,0 +1,138 @@
+@import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600&family=Scheherazade+New:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --color-background: #0d1f1a;
+  --color-foreground: #f2ead8;
+  --color-card: #122b24;
+  --color-card-foreground: #f2ead8;
+  --color-primary: #c9a84c;
+  --color-primary-foreground: #0d1f1a;
+  --color-secondary: #1a3d32;
+  --color-secondary-foreground: #d4c9a8;
+  --color-muted: #1e3329;
+  --color-muted-foreground: #8fa897;
+  --color-accent: #e8c96a;
+  --color-accent-foreground: #0d1f1a;
+  --color-border: #243d32;
+  --color-ring: #c9a84c;
+  --radius: 1rem;
+
+  --font-sans: 'Inter', sans-serif;
+  --font-serif: 'Lora', serif;
+  --font-arabic: 'Scheherazade New', 'Amiri', 'Traditional Arabic', serif;
+}
+
+:root {
+  --bg: #0d1f1a;
+  --fg: #f2ead8;
+  --card-bg: #122b24;
+  --card-fg: #f2ead8;
+  --primary: #c9a84c;
+  --primary-fg: #0d1f1a;
+  --secondary-bg: #1a3d32;
+  --secondary-fg: #d4c9a8;
+  --muted-bg: #1e3329;
+  --muted-fg: #8fa897;
+  --accent: #e8c96a;
+  --accent-fg: #0d1f1a;
+  --border: #243d32;
+  --nav-bg: rgba(13,31,26,0.97);
+  --header-gradient: radial-gradient(ellipse at 80% 0%, rgba(201,168,76,0.12) 0%, transparent 65%);
+  --header-line-gradient: linear-gradient(180deg, rgba(201,168,76,0.07) 0%, transparent 100%);
+  --stripe-even: #122b24;
+  --stripe-odd: #0f2621;
+  --verse-hover: rgba(201,168,76,0.06);
+  --verse-border: rgba(201,168,76,0.2);
+  --player-bg: rgba(13,31,26,0.97);
+  --input-bg: #122b24;
+}
+
+[data-theme="light"] {
+  --bg: #faf7f0;
+  --fg: #1a2e26;
+  --card-bg: #ffffff;
+  --card-fg: #1a2e26;
+  --primary: #a8823a;
+  --primary-fg: #ffffff;
+  --secondary-bg: #eef5f0;
+  --secondary-fg: #3d6b55;
+  --muted-bg: #f0ede4;
+  --muted-fg: #6b8f7c;
+  --accent: #c9a84c;
+  --accent-fg: #ffffff;
+  --border: #ddd8c4;
+  --nav-bg: rgba(250,247,240,0.97);
+  --header-gradient: radial-gradient(ellipse at 80% 0%, rgba(169,131,58,0.1) 0%, transparent 65%);
+  --header-line-gradient: linear-gradient(180deg, rgba(169,131,58,0.06) 0%, transparent 100%);
+  --stripe-even: #ffffff;
+  --stripe-odd: #faf7f0;
+  --verse-hover: rgba(168,130,58,0.05);
+  --verse-border: rgba(168,130,58,0.2);
+  --player-bg: rgba(250,247,240,0.97);
+  --input-bg: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Hide scrollbars by default */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.arabic-text {
+  font-family: var(--font-arabic);
+  direction: rtl;
+  text-align: right;
+  line-height: 2.2;
+}
+
+.serif-heading {
+  font-family: 'Lora', serif;
+}
+
+/* Islamic geometric pattern overlay */
+.pattern-bg {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cg fill='none' stroke='%23c9a84c' stroke-width='0.3' opacity='0.15'%3E%3Cpolygon points='30,2 58,16 58,44 30,58 2,44 2,16'/%3E%3Cpolygon points='30,10 50,20 50,40 30,50 10,40 10,20'/%3E%3Cline x1='2' y1='16' x2='10' y2='20'/%3E%3Cline x1='58' y1='16' x2='50' y2='20'/%3E%3Cline x1='2' y1='44' x2='10' y2='40'/%3E%3Cline x1='58' y1='44' x2='50' y2='40'/%3E%3Cline x1='30' y1='2' x2='30' y2='10'/%3E%3Cline x1='30' y1='50' x2='30' y2='58'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Smooth transitions */
+* {
+  transition-property: color, background-color, border-color, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+
+button, a {
+  cursor: pointer;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes pulse-gold {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201,168,76,0.3); }
+  50% { box-shadow: 0 0 0 8px rgba(201,168,76,0); }
+}
+
+.pulse-gold {
+  animation: pulse-gold 2s infinite;
+}
