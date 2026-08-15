@@ -939,9 +939,23 @@ function HomeScreen({ onReadSurah }: { onReadSurah: (id: number, ayah?: number) 
             border: '1px solid var(--border)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            flexDirection: 'column',
+            gap: '8px',
           }}
         >
+          <p style={{ color: 'var(--muted-fg)', fontSize: '13px', lineHeight: 1.7, margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            Created by{' '}
+            <br />
+            <a
+              href="https://tawakalmit.my.id/"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: 'var(--primary)', textDecoration: 'underline', textAlign: 'center' }}
+            >
+              tawakalmit
+            </a>
+          </p>
           <p style={{ color: 'var(--muted-fg)', fontSize: '13px', lineHeight: 1.7, margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
             API Powered by{' '}
             <br />
