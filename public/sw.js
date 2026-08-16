@@ -43,6 +43,14 @@ if (self.workbox) {
   )
 
   // Runtime caching for cross-origin HTTP(S) assets — StaleWhileRevalidate
+  // Bypass caching for a specific external origin so navigations/requests
+  // to that domain always hit the network (prevents stale/broken cached pages).
+  routing.registerRoute(
+    ({url}) => url.origin === 'https://alquran.tawakalmit.my.id',
+    new strategies.NetworkOnly(),
+  )
+
+  // Runtime caching for other cross-origin HTTP(S) assets — StaleWhileRevalidate
   routing.registerRoute(
     ({url}) => (url.protocol === 'http:' || url.protocol === 'https:') && url.origin !== self.location.origin,
     new strategies.StaleWhileRevalidate({
