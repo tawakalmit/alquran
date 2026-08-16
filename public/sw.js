@@ -19,44 +19,23 @@ if (self.workbox) {
   core.skipWaiting()
   core.clientsClaim()
 
-  // Precache app shell with explicit revision tokens to ensure the
-  // precached index.html is available for navigation requests.
-  precaching.precacheAndRoute(APP_SHELL.map((url) => ({url, revision: String(Date.now())})))
+  // Do not precache app shell or serve cached navigation responses.
+  // Force network for navigation and all HTTP(S) requests so revisits
+  // always fetch fresh content from the origin.
+  routing.registerRoute(
+    ({request}) => request.mode === 'navigate',
+    new strategies.NetworkOnly({fetchOptions: {cache: 'no-store'}}),
+  )
 
-  // Serve index.html for navigation requests (SPA fallback).
-  // Use Workbox's precache cache key to ensure the cached entry is found.
-  const precachedIndex = precaching.getCacheKeyForURL('/index.html')
-  routing.registerNavigationRoute(precachedIndex, {
-    blacklist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
-  })
-
-  // Runtime caching for same-origin HTTP(S) requests — NetworkFirst
+  // Force network-only for all same-origin and cross-origin HTTP(S) requests.
   routing.registerRoute(
     ({url}) => (url.protocol === 'http:' || url.protocol === 'https:') && url.origin === self.location.origin,
-    new strategies.NetworkFirst({
-      cacheName: CACHE_NAME,
-      plugins: [
-        new expiration.ExpirationPlugin({maxEntries: 60, maxAgeSeconds: 30 * 24 * 60 * 60}),
-        new cacheableResponse.CacheableResponsePlugin({statuses: [0, 200]}),
-      ],
-    }),
+    new strategies.NetworkOnly({fetchOptions: {cache: 'no-store'}}),
   )
 
-  // Runtime caching for cross-origin HTTP(S) assets — StaleWhileRevalidate
-  // Bypass caching for a specific external origin so navigations/requests
-  // to that domain always hit the network (prevents stale/broken cached pages).
-  routing.registerRoute(
-    ({url}) => url.origin === 'https://alquran.tawakalmit.my.id',
-    new strategies.NetworkOnly(),
-  )
-
-  // Runtime caching for other cross-origin HTTP(S) assets — StaleWhileRevalidate
   routing.registerRoute(
     ({url}) => (url.protocol === 'http:' || url.protocol === 'https:') && url.origin !== self.location.origin,
-    new strategies.StaleWhileRevalidate({
-      cacheName: 'external-resources-cache',
-      plugins: [new expiration.ExpirationPlugin({maxEntries: 60, maxAgeSeconds: 30 * 24 * 60 * 60})],
-    }),
+    new strategies.NetworkOnly({fetchOptions: {cache: 'no-store'}}),
   )
 
 } else {
