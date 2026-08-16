@@ -21,21 +21,35 @@ if (self.workbox) {
 
   // Do not precache app shell or serve cached navigation responses.
   // Force network for navigation and all HTTP(S) requests so revisits
-  // always fetch fresh content from the origin.
-  routing.registerRoute(
-    ({request}) => request.mode === 'navigate',
-    new strategies.NetworkOnly({fetchOptions: {cache: 'no-store'}}),
-  )
+  // precached index.html is available for navigation requests.
+  precaching.precacheAndRoute(APP_SHELL.map((url) => ({url, revision: String(Date.now())})))
+
+  // Serve index.html for navigation requests (SPA fallback).
+  // Use Workbox's precache cache key to ensure the cached entry is found.
+  const precachedIndex = precaching.getCacheKeyForURL('/index.html')
+  routing.registerNavigationRoute(precachedIndex, {
+    blacklist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
+  })
 
   // Force network-only for all same-origin and cross-origin HTTP(S) requests.
   routing.registerRoute(
     ({url}) => (url.protocol === 'http:' || url.protocol === 'https:') && url.origin === self.location.origin,
-    new strategies.NetworkOnly({fetchOptions: {cache: 'no-store'}}),
+    new strategies.NetworkFirst({
+      cacheName: CACHE_NAME,
+      plugins: [
+        new expiration.ExpirationPlugin({maxEntries: 60, maxAgeSeconds: 30 * 24 * 60 * 60}),
+        new cacheableResponse.CacheableResponsePlugin({statuses: [0, 200]}),
+      ],
+    }),
   )
 
+  // Runtime caching for cross-origin HTTP(S) assets — StaleWhileRevalidate
   routing.registerRoute(
     ({url}) => (url.protocol === 'http:' || url.protocol === 'https:') && url.origin !== self.location.origin,
-    new strategies.NetworkOnly({fetchOptions: {cache: 'no-store'}}),
+    new strategies.StaleWhileRevalidate({
+      cacheName: 'external-resources-cache',
+      plugins: [new expiration.ExpirationPlugin({maxEntries: 60, maxAgeSeconds: 30 * 24 * 60 * 60})],
+    }),
   )
 
 } else {
