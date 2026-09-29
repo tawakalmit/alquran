@@ -75,10 +75,12 @@ type QuranDetailResponse = {
     last_page?: number
     next_page_url?: string | null
     has_more_pages?: boolean
+    total?: number
   }
   meta?: {
     current_page?: number
     last_page?: number
+    total?: number
   }
 }
 
@@ -256,6 +258,25 @@ const lastReadStorageKey = 'holy-quran-last-read'
 const favoriteSurahsStorageKey = 'holy-quran-favorite-surahs'
 const surahDetailCacheStorageKey = 'holy-quran-surah-detail-cache'
 const juzDetailCacheStorageKey = 'holy-quran-juz-detail-cache'
+const arabicFontSizeStorageKey = 'holy-quran-arabic-font-size'
+
+function getSavedArabicFontSize(): number {
+  try {
+    const val = window.localStorage.getItem(arabicFontSizeStorageKey)
+    if (!val) return 26
+    const parsed = Number(val)
+    if (Number.isFinite(parsed) && parsed >= 18 && parsed <= 40) {
+      return parsed
+    }
+  } catch {}
+  return 26
+}
+
+function saveArabicFontSize(size: number) {
+  try {
+    window.localStorage.setItem(arabicFontSizeStorageKey, String(size))
+  } catch {}
+}
 
 function getPageFromPath(pathname: string): PageId {
   if (/^\/surah\/\d+$/.test(pathname)) {
@@ -776,8 +797,276 @@ function IconSettings() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 012.83-2.83l.06-.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
     </svg>
+  )
+}
+
+function IconFontSize() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 19l4.5-11 4.5 11" />
+      <path d="M5.5 15h6" />
+      <path d="M16 19l2.5-6 2.5 6" />
+      <path d="M16.8 16.5h3.4" />
+    </svg>
+  )
+}
+
+function IconClose() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  )
+}
+
+function FontSizeModal({
+  isOpen,
+  onClose,
+  fontSize,
+  onChangeFontSize,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  fontSize: number
+  onChangeFontSize: (size: number) => void
+}) {
+  const { dark } = useTheme()
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
+  if (!isOpen) return null
+
+  const presets = [
+    { label: 'Kecil', size: 20 },
+    { label: 'Normal', size: 26 },
+    { label: 'Besar', size: 32 },
+    { label: 'Ekstra', size: 38 },
+  ]
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Pengaturan Ukuran Font"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      style={{
+        background: 'rgba(0, 0, 0, 0.65)',
+        backdropFilter: 'blur(4px)',
+      }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full rounded-2xl p-5 shadow-2xl animate-fade-in"
+        style={{
+          maxWidth: 360,
+          background: dark ? 'rgba(20, 36, 32, 0.98)' : '#ffffff',
+          border: '1px solid var(--border)',
+          color: 'var(--fg)',
+          boxShadow: '0 20px 40px -15px rgba(0,0,0,0.5)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between pb-3 mb-4" style={{ borderBottom: '1px solid var(--border)' }}>
+          <div className="flex items-center gap-2.5">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ background: 'rgba(201,168,76,0.15)', color: 'var(--primary)' }}
+            >
+              <IconFontSize />
+            </div>
+            <div>
+              <h3 className="serif-heading" style={{ fontSize: '16px', fontWeight: 600, color: 'var(--fg)', margin: 0 }}>
+                Ukuran Font Arab
+              </h3>
+              <p style={{ fontSize: '11px', color: 'var(--muted-fg)', margin: 0 }}>
+                Sesuaikan ukuran tulisan ayat
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Tutup pengaturan font"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--muted-fg)',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <IconClose />
+          </button>
+        </div>
+
+        {/* Live Arabic Preview */}
+        <div
+          className="rounded-xl p-4 mb-4 text-center"
+          style={{
+            background: 'var(--muted-bg)',
+            border: '1px solid var(--border)',
+            minHeight: '84px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+          }}
+        >
+          <p
+            className="arabic-text"
+            style={{
+              fontSize: `${fontSize}px`,
+              color: 'var(--fg)',
+              lineHeight: 1.8,
+              margin: 0,
+              transition: 'font-size 0.15s ease-out',
+            }}
+          >
+            بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+          </p>
+        </div>
+
+        {/* Stepper & Slider Controls */}
+        <div className="space-y-3 mb-4">
+          <div className="flex items-center justify-between">
+            <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--muted-fg)' }}>
+              Ukuran Teks
+            </span>
+            <span
+              style={{
+                fontSize: '13px',
+                fontWeight: 700,
+                color: 'var(--primary)',
+                background: 'rgba(201,168,76,0.12)',
+                padding: '2px 8px',
+                borderRadius: 6,
+              }}
+            >
+              {fontSize}px
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => onChangeFontSize(fontSize - 2)}
+              disabled={fontSize <= 18}
+              aria-label="Perkecil font Arab"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                background: 'var(--muted-bg)',
+                border: '1px solid var(--border)',
+                color: fontSize <= 18 ? 'var(--muted-fg)' : 'var(--fg)',
+                opacity: fontSize <= 18 ? 0.4 : 1,
+                fontSize: '18px',
+                fontWeight: 600,
+                cursor: fontSize <= 18 ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              −
+            </button>
+
+            <input
+              type="range"
+              min={18}
+              max={40}
+              step={2}
+              value={fontSize}
+              onChange={(e) => onChangeFontSize(Number(e.target.value))}
+              aria-label="Pengatur ukuran font Arab"
+              className="w-full cursor-pointer"
+              style={{
+                accentColor: 'var(--primary)',
+              }}
+            />
+
+            <button
+              onClick={() => onChangeFontSize(fontSize + 2)}
+              disabled={fontSize >= 40}
+              aria-label="Perbesar font Arab"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                background: 'rgba(201,168,76,0.12)',
+                border: '1px solid rgba(201,168,76,0.35)',
+                color: fontSize >= 40 ? 'var(--muted-fg)' : 'var(--primary)',
+                opacity: fontSize >= 40 ? 0.4 : 1,
+                fontSize: '18px',
+                fontWeight: 600,
+                cursor: fontSize >= 40 ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              +
+            </button>
+          </div>
+        </div>
+
+        {/* Preset Buttons */}
+        <div className="grid grid-cols-4 gap-1.5 mb-5">
+          {presets.map((preset) => {
+            const isSelected = fontSize === preset.size
+            return (
+              <button
+                key={preset.size}
+                onClick={() => onChangeFontSize(preset.size)}
+                style={{
+                  padding: '7px 0',
+                  borderRadius: 8,
+                  fontSize: '11px',
+                  fontWeight: isSelected ? 700 : 500,
+                  background: isSelected ? 'var(--primary)' : 'var(--muted-bg)',
+                  color: isSelected ? (dark ? '#0D1F1A' : '#ffffff') : 'var(--muted-fg)',
+                  border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {preset.label}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Footer / Done Button */}
+        <button
+          onClick={onClose}
+          className="w-full py-2.5 rounded-xl font-medium text-sm transition-all"
+          style={{
+            background: 'var(--primary)',
+            color: dark ? '#0D1F1A' : '#ffffff',
+            fontWeight: 600,
+            cursor: 'pointer',
+            border: 'none',
+          }}
+        >
+          Selesai
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -1217,7 +1506,8 @@ function JuzDetailScreen({ juzId, onBack, onReadJuz }: { juzId: number; onBack: 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const visibleAyahsRef = useRef<Set<number>>(new Set())
   const lastObservedOrderRef = useRef<number | null>(null)
-  const [arabicFontSize, setArabicFontSize] = useState(26)
+  const [arabicFontSize, setArabicFontSize] = useState<number>(() => getSavedArabicFontSize())
+  const [showFontSizeModal, setShowFontSizeModal] = useState(false)
   const [showTranslation, setShowTranslation] = useState(true)
   const [showPlayer, setShowPlayer] = useState(true)
   const [playing, setPlaying] = useState(false)
@@ -1470,7 +1760,11 @@ function JuzDetailScreen({ juzId, onBack, onReadJuz }: { juzId: number; onBack: 
     }
   }
 
-  const updateArabicFontSize = (nextSize: number) => setArabicFontSize(Math.min(40, Math.max(18, nextSize)))
+  const updateArabicFontSize = (nextSize: number) => {
+    const clamped = Math.min(40, Math.max(18, nextSize))
+    setArabicFontSize(clamped)
+    saveArabicFontSize(clamped)
+  }
 
   return (
     <div ref={juzRootRef} className="animate-fade-in min-h-screen" style={{ background: 'var(--bg)', height: '100vh', overflowY: 'auto', paddingTop: '68px' }}>
@@ -1486,9 +1780,9 @@ function JuzDetailScreen({ juzId, onBack, onReadJuz }: { juzId: number; onBack: 
         <button onClick={onBack} style={{ color: 'var(--muted-fg)' }}>
           <IconChevronLeft />
         </button>
-        <div className="text-center">
-          <p style={{ color: 'var(--fg)', fontWeight: 600, fontSize: '15px', fontFamily: 'Lora, serif' }}>Juz {juzId}</p>
-          <p style={{ color: 'var(--muted-fg)', fontSize: '11px' }}>
+        <div className="text-center min-w-0 px-2 flex-1">
+          <p style={{ color: 'var(--fg)', fontWeight: 600, fontSize: '15px', fontFamily: 'Lora, serif' }} className="truncate">Juz {juzId}</p>
+          <p style={{ color: 'var(--muted-fg)', fontSize: '11px' }} className="truncate">
             {detail ? `${detail.verses.length}${detail.totalVerses ? ` dari ${detail.totalVerses}` : ''} ayat` : 'Memuat ayat'}
           </p>
         </div>
@@ -1509,6 +1803,23 @@ function JuzDetailScreen({ juzId, onBack, onReadJuz }: { juzId: number; onBack: 
             }}
           >
             <IconSpeaker off={!showPlayer} />
+          </button>
+          <button
+            onClick={() => setShowFontSizeModal(true)}
+            aria-label="Pengaturan ukuran font"
+            title="Pengaturan ukuran font"
+            style={{
+              color: showFontSizeModal ? 'var(--primary)' : 'var(--muted-fg)',
+              width: 34,
+              height: 34,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 6,
+              background: showFontSizeModal ? 'rgba(201,168,76,0.1)' : 'transparent',
+            }}
+          >
+            <IconFontSize />
           </button>
           <button
             onClick={() => setShowTranslation(!showTranslation)}
@@ -1573,61 +1884,6 @@ function JuzDetailScreen({ juzId, onBack, onReadJuz }: { juzId: number; onBack: 
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between px-5 py-3">
-            <span style={{ color: 'var(--muted-fg)', fontSize: '12px', fontWeight: 500 }}>Ukuran font Arab</span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => updateArabicFontSize(arabicFontSize - 2)}
-                aria-label="Perkecil font Arab"
-                style={{
-                  width: 30, height: 30, borderRadius: 6,
-                  background: 'transparent',
-                  border: '1px solid var(--border)',
-                  color: 'var(--muted-fg)',
-                  fontSize: '16px',
-                  fontWeight: 600,
-                }}
-              >
-                −
-              </button>
-              <input
-                type="number"
-                min={18}
-                max={40}
-                step={2}
-                value={arabicFontSize}
-                onChange={(event) => updateArabicFontSize(Number(event.target.value))}
-                aria-label="Ukuran font Arab"
-                style={{
-                  width: 54,
-                  height: 30,
-                  borderRadius: 6,
-                  background: 'var(--input-bg)',
-                  border: '1px solid rgba(201,168,76,0.35)',
-                  color: 'var(--primary)',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  textAlign: 'center',
-                  outline: 'none',
-                }}
-              />
-              <button
-                onClick={() => updateArabicFontSize(arabicFontSize + 2)}
-                aria-label="Perbesar font Arab"
-                style={{
-                  width: 30, height: 30, borderRadius: 6,
-                  background: 'rgba(201,168,76,0.12)',
-                  border: '1px solid rgba(201,168,76,0.35)',
-                  color: 'var(--primary)',
-                  fontSize: '16px',
-                  fontWeight: 600,
-                }}
-              >
-                +
-              </button>
-            </div>
-          </div>
-
           <div className={showPlayer ? 'px-3 pb-36' : 'px-3 pb-8'}>
             {!showTranslation ? (
               <div
@@ -1820,7 +2076,14 @@ function JuzDetailScreen({ juzId, onBack, onReadJuz }: { juzId: number; onBack: 
           </div>
         </div>
       )}
-      </div>
+      {/* Font Size Modal */}
+      <FontSizeModal
+        isOpen={showFontSizeModal}
+        onClose={() => setShowFontSizeModal(false)}
+        fontSize={arabicFontSize}
+        onChangeFontSize={updateArabicFontSize}
+      />
+    </div>
   )
 }
 
@@ -1835,7 +2098,8 @@ function ReadingScreen({ surahId, onBack, onReadSurah }: { surahId: number; onBa
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [bookmarked, setBookmarked] = useState<Set<string>>(() => new Set(getSavedBookmarks().map((bookmark) => bookmark.id)))
-  const [arabicFontSize, setArabicFontSize] = useState(26)
+  const [arabicFontSize, setArabicFontSize] = useState<number>(() => getSavedArabicFontSize())
+  const [showFontSizeModal, setShowFontSizeModal] = useState(false)
   const [showTranslation, setShowTranslation] = useState(true)
   const [showPlayer, setShowPlayer] = useState(true)
   const [activeVerse, setActiveVerse] = useState<number | null>(null)
@@ -2137,7 +2401,11 @@ function ReadingScreen({ surahId, onBack, onReadSurah }: { surahId: number; onBa
 
   const { surah, verses } = detail
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0
-  const updateArabicFontSize = (nextSize: number) => setArabicFontSize(Math.min(40, Math.max(18, nextSize)))
+  const updateArabicFontSize = (nextSize: number) => {
+    const clamped = Math.min(40, Math.max(18, nextSize))
+    setArabicFontSize(clamped)
+    saveArabicFontSize(clamped)
+  }
 
   return (
     <div ref={readingRootRef} className="animate-fade-in min-h-screen" style={{ background: 'var(--bg)', height: '100vh', overflowY: 'auto', paddingTop: '68px' }}>
@@ -2154,9 +2422,9 @@ function ReadingScreen({ surahId, onBack, onReadSurah }: { surahId: number; onBa
         <button onClick={onBack} style={{ color: 'var(--muted-fg)' }}>
           <IconChevronLeft />
         </button>
-        <div className="text-center">
-          <p style={{ color: 'var(--fg)', fontWeight: 600, fontSize: '15px', fontFamily: 'Lora, serif' }}>{surah.nameLatin}</p>
-          <p style={{ color: 'var(--muted-fg)', fontSize: '11px' }}>{surah.verses} ayat · {surah.revelation}</p>
+        <div className="text-center min-w-0 px-2 flex-1">
+          <p style={{ color: 'var(--fg)', fontWeight: 600, fontSize: '15px', fontFamily: 'Lora, serif' }} className="truncate">{surah.nameLatin}</p>
+          <p style={{ color: 'var(--muted-fg)', fontSize: '11px' }} className="truncate">{surah.verses} ayat · {surah.revelation}</p>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -2175,6 +2443,23 @@ function ReadingScreen({ surahId, onBack, onReadSurah }: { surahId: number; onBa
             }}
           >
             <IconSpeaker off={!showPlayer} />
+          </button>
+          <button
+            onClick={() => setShowFontSizeModal(true)}
+            aria-label="Pengaturan ukuran font"
+            title="Pengaturan ukuran font"
+            style={{
+              color: showFontSizeModal ? 'var(--primary)' : 'var(--muted-fg)',
+              width: 34,
+              height: 34,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 6,
+              background: showFontSizeModal ? 'rgba(201,168,76,0.1)' : 'transparent',
+            }}
+          >
+            <IconFontSize />
           </button>
           <button
             onClick={() => setShowTranslation(!showTranslation)}
@@ -2225,62 +2510,6 @@ function ReadingScreen({ surahId, onBack, onReadSurah }: { surahId: number; onBa
         <p className="arabic-text mt-3" style={{ fontSize: '28px', color: 'var(--primary)', lineHeight: 1.4 }}>
           {surah.name}
         </p>
-      </div>
-
-      {/* Arabic font size */}
-      <div className="flex items-center justify-between px-5 py-3">
-        <span style={{ color: 'var(--muted-fg)', fontSize: '12px', fontWeight: 500 }}>Ukuran font Arab</span>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => updateArabicFontSize(arabicFontSize - 2)}
-            aria-label="Perkecil font Arab"
-            style={{
-              width: 30, height: 30, borderRadius: 6,
-              background: 'transparent',
-              border: '1px solid var(--border)',
-              color: 'var(--muted-fg)',
-              fontSize: '16px',
-              fontWeight: 600,
-            }}
-          >
-            −
-          </button>
-          <input
-            type="number"
-            min={18}
-            max={40}
-            step={2}
-            value={arabicFontSize}
-            onChange={(event) => updateArabicFontSize(Number(event.target.value))}
-            aria-label="Ukuran font Arab"
-            style={{
-              width: 54,
-              height: 30,
-              borderRadius: 6,
-              background: 'var(--input-bg)',
-              border: '1px solid rgba(201,168,76,0.35)',
-              color: 'var(--primary)',
-              fontSize: '12px',
-              fontWeight: 600,
-              textAlign: 'center',
-              outline: 'none',
-            }}
-          />
-          <button
-            onClick={() => updateArabicFontSize(arabicFontSize + 2)}
-            aria-label="Perbesar font Arab"
-            style={{
-              width: 30, height: 30, borderRadius: 6,
-              background: 'rgba(201,168,76,0.12)',
-              border: '1px solid rgba(201,168,76,0.35)',
-              color: 'var(--primary)',
-              fontSize: '16px',
-              fontWeight: 600,
-            }}
-          >
-            +
-          </button>
-        </div>
       </div>
 
       {/* Verses */}
@@ -2457,6 +2686,13 @@ function ReadingScreen({ surahId, onBack, onReadSurah }: { surahId: number; onBa
           </div>
         </div>
       )}
+      {/* Font Size Modal */}
+      <FontSizeModal
+        isOpen={showFontSizeModal}
+        onClose={() => setShowFontSizeModal(false)}
+        fontSize={arabicFontSize}
+        onChangeFontSize={updateArabicFontSize}
+      />
     </div>
   )
 }
@@ -2672,7 +2908,7 @@ function SettingsScreen() {
 
 // --- Bottom Nav ---
 function BottomNav({ page, navigateToPage }: { page: PageId; navigateToPage: (page: PageId) => void }) {
-  const items = [
+  const items: Array<{ id: PageId; label: string; Icon: (props: any) => any }> = [
     { id: 'home', label: 'Beranda', Icon: IconHome },
     { id: 'surahs', label: 'Surah', Icon: IconBook },
     { id: 'juz', label: 'Juz', Icon: IconBook },
