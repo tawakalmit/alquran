@@ -137,15 +137,15 @@ type JuzDetail = {
 
 type CachedSurahDetail = {
   detail: SurahDetail
-  page: number
-  hasMore: boolean
+  page?: number
+  hasMore?: boolean
   cachedAt: string
 }
 
 type CachedJuzDetail = {
   detail: JuzDetail
-  page: number
-  hasMore: boolean
+  page?: number
+  hasMore?: boolean
   cachedAt: string
 }
 
@@ -335,77 +335,94 @@ function getJuzDetailCache() {
   }
 }
 
-function getCachedSurahDetail(surahId: number) {
-  const cacheKey = String(surahId)
-  const cachedDetails = getSurahDetailCache()
-  const cachedDetail = cachedDetails[cacheKey] ?? null
+function getCachedSurahDetail(surahId: number): CachedSurahDetail | null {
+  try {
+    const individualKey = `${surahDetailCacheStorageKey}-${surahId}`
+    const individualItem = window.localStorage.getItem(individualKey)
+    let cachedDetail: CachedSurahDetail | null = null
 
-  if (!cachedDetail) {
+    if (individualItem) {
+      cachedDetail = JSON.parse(individualItem) as CachedSurahDetail
+    } else {
+      const cachedDetails = getSurahDetailCache()
+      cachedDetail = cachedDetails[String(surahId)] ?? null
+    }
+
+    if (!cachedDetail || !cachedDetail.detail || !Array.isArray(cachedDetail.detail.verses)) {
+      return null
+    }
+
+    const expectedVerses = cachedDetail.detail.surah?.verses
+    if (!expectedVerses || cachedDetail.detail.verses.length < expectedVerses) {
+      return null
+    }
+
+    if (!hasContiguousVersesFromStart(cachedDetail.detail.verses)) {
+      return null
+    }
+
+    return cachedDetail
+  } catch {
     return null
   }
-
-  if (!hasContiguousVersesFromStart(cachedDetail.detail.verses)) {
-    delete cachedDetails[cacheKey]
-    window.localStorage.setItem(surahDetailCacheStorageKey, JSON.stringify(cachedDetails))
-    return null
-  }
-
-  return cachedDetail
 }
 
-function getCachedJuzDetail(juzId: number) {
-  const cacheKey = String(juzId)
-  const cachedDetails = getJuzDetailCache()
-  const cachedDetail = cachedDetails[cacheKey] ?? null
+function getCachedJuzDetail(juzId: number): CachedJuzDetail | null {
+  try {
+    const individualKey = `${juzDetailCacheStorageKey}-${juzId}`
+    const individualItem = window.localStorage.getItem(individualKey)
+    let cachedDetail: CachedJuzDetail | null = null
 
-  if (!cachedDetail) {
+    if (individualItem) {
+      cachedDetail = JSON.parse(individualItem) as CachedJuzDetail
+    } else {
+      const cachedDetails = getJuzDetailCache()
+      cachedDetail = cachedDetails[String(juzId)] ?? null
+    }
+
+    if (!cachedDetail || !cachedDetail.detail || !Array.isArray(cachedDetail.detail.verses)) {
+      return null
+    }
+
+    const expectedVerses = juzVerseCounts[juzId] || cachedDetail.detail.totalVerses
+    if (!expectedVerses || cachedDetail.detail.verses.length < expectedVerses) {
+      return null
+    }
+
+    if (!hasContiguousJuzVersesFromStart(cachedDetail.detail.verses)) {
+      return null
+    }
+
+    return cachedDetail
+  } catch {
     return null
   }
-
-  if (!hasContiguousJuzVersesFromStart(cachedDetail.detail.verses)) {
-    delete cachedDetails[cacheKey]
-    window.localStorage.setItem(juzDetailCacheStorageKey, JSON.stringify(cachedDetails))
-    return null
-  }
-
-  const totalVerses = juzVerseCounts[juzId] || cachedDetail.detail.totalVerses || cachedDetail.detail.verses.length
-  const normalizedCache = {
-    ...cachedDetail,
-    detail: {
-      ...cachedDetail.detail,
-      totalVerses,
-    },
-    hasMore: cachedDetail.detail.verses.length < totalVerses,
-  }
-
-  if (normalizedCache.hasMore !== cachedDetail.hasMore || normalizedCache.detail.totalVerses !== cachedDetail.detail.totalVerses) {
-    cachedDetails[cacheKey] = normalizedCache
-    window.localStorage.setItem(juzDetailCacheStorageKey, JSON.stringify(cachedDetails))
-  }
-
-  return normalizedCache
 }
 
 function saveCachedSurahDetail(surahId: number, cache: Omit<CachedSurahDetail, 'cachedAt'>) {
-  const cachedDetails = getSurahDetailCache()
-
-  cachedDetails[String(surahId)] = {
-    ...cache,
-    cachedAt: new Date().toISOString(),
+  try {
+    const dataToSave: CachedSurahDetail = {
+      ...cache,
+      cachedAt: new Date().toISOString(),
+    }
+    const individualKey = `${surahDetailCacheStorageKey}-${surahId}`
+    window.localStorage.setItem(individualKey, JSON.stringify(dataToSave))
+  } catch (error) {
+    console.warn('Gagal menyimpan cache surah ke localStorage:', error)
   }
-
-  window.localStorage.setItem(surahDetailCacheStorageKey, JSON.stringify(cachedDetails))
 }
 
 function saveCachedJuzDetail(juzId: number, cache: Omit<CachedJuzDetail, 'cachedAt'>) {
-  const cachedDetails = getJuzDetailCache()
-
-  cachedDetails[String(juzId)] = {
-    ...cache,
-    cachedAt: new Date().toISOString(),
+  try {
+    const dataToSave: CachedJuzDetail = {
+      ...cache,
+      cachedAt: new Date().toISOString(),
+    }
+    const individualKey = `${juzDetailCacheStorageKey}-${juzId}`
+    window.localStorage.setItem(individualKey, JSON.stringify(dataToSave))
+  } catch (error) {
+    console.warn('Gagal menyimpan cache juz ke localStorage:', error)
   }
-
-  window.localStorage.setItem(juzDetailCacheStorageKey, JSON.stringify(cachedDetails))
 }
 
 function saveFavoriteSurahs(favorites: FavoriteSurah[]) {
@@ -1200,8 +1217,6 @@ function JuzDetailScreen({ juzId, onBack, onReadJuz }: { juzId: number; onBack: 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const visibleAyahsRef = useRef<Set<number>>(new Set())
   const lastObservedOrderRef = useRef<number | null>(null)
-  const scrollRestoreRef = useRef<number | null>(null)
-  const nextPageRequestedRef = useRef(false)
   const [arabicFontSize, setArabicFontSize] = useState(26)
   const [showTranslation, setShowTranslation] = useState(true)
   const [showPlayer, setShowPlayer] = useState(true)
@@ -1212,147 +1227,94 @@ function JuzDetailScreen({ juzId, onBack, onReadJuz }: { juzId: number; onBack: 
   const [audioVerseKey, setAudioVerseKey] = useState<string | null>(null)
   const [bookmarked, setBookmarked] = useState<Set<string>>(() => new Set(getSavedBookmarks().map((bookmark) => bookmark.id)))
   const [detail, setDetail] = useState<JuzDetail | null>(null)
-  const [detailPage, setDetailPage] = useState(1)
-  const [hasMoreVerses, setHasMoreVerses] = useState(true)
   const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
   const [loadError, setLoadError] = useState(false)
-  const [loadMoreErrorPage, setLoadMoreErrorPage] = useState<number | null>(null)
-  const [retryLoadMoreKey, setRetryLoadMoreKey] = useState(0)
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
-    const cachedDetail = getCachedJuzDetail(juzId)
-
-    setDetail(cachedDetail?.detail ?? null)
-    setDetailPage(cachedDetail?.page ?? 1)
-    setHasMoreVerses(cachedDetail?.hasMore ?? true)
-    setLoading(!cachedDetail)
     setActiveVerse(null)
     setAudioVerseKey(null)
     visibleAyahsRef.current = new Set()
     lastObservedOrderRef.current = null
-    scrollRestoreRef.current = null
-    nextPageRequestedRef.current = false
-    setLoadMoreErrorPage(null)
-    setRetryLoadMoreKey(0)
-  }, [juzId])
 
-  useEffect(() => {
     const cachedDetail = getCachedJuzDetail(juzId)
 
-    if (cachedDetail && detailPage <= cachedDetail.page) {
+    if (cachedDetail) {
+      setDetail(cachedDetail.detail)
       setLoading(false)
-      setLoadingMore(false)
       setLoadError(false)
-      setLoadMoreErrorPage(null)
-      nextPageRequestedRef.current = false
       return
     }
 
+    setDetail(null)
+    setLoading(true)
+    setLoadError(false)
+
     const controller = new AbortController()
 
-    async function loadJuzDetail() {
+    async function loadAllJuzDetail() {
       try {
-        if (detailPage > 1 && juzRootRef.current) {
-          scrollRestoreRef.current = juzRootRef.current.scrollTop
-        }
+        let page = 1
+        let allVerses: JuzVerse[] = []
+        let totalVerses = juzVerseCounts[juzId] || 0
+        let hasMore = true
 
-        setLoading(detailPage === 1)
-        setLoadingMore(detailPage > 1)
-        setLoadError(false)
-        setLoadMoreErrorPage(null)
+        while (hasMore) {
+          const response = await fetch(`https://api.myquran.com/v3/quran/juz/${juzId}?page=${page}&limit=100`, {
+            signal: controller.signal,
+          })
 
-        const response = await fetch(`https://api.myquran.com/v3/quran/juz/${juzId}${detailPage > 1 ? `?page=${detailPage}` : ''}`, {
-          signal: controller.signal,
-        })
-
-        if (!response.ok) {
-          throw new Error('Gagal memuat detail juz')
-        }
-
-        const result = (await response.json()) as QuranJuzResponse
-
-        if (!result.status || !result.data) {
-          throw new Error('Response detail juz tidak valid')
-        }
-
-        setDetail((currentDetail) => {
-          if (detailPage === 1 || !currentDetail) {
-            const nextVerses = mapJuzVerses(result.data, 1)
-            const totalVerses = getJuzTotalVerses(result, nextVerses.length, juzId)
-            const nextDetail = {
-              id: juzId,
-              verses: nextVerses,
-              totalVerses,
-            }
-            const nextHasMore = hasMoreDetailPages(result, nextDetail.verses.length, totalVerses)
-
-            setHasMoreVerses(nextHasMore)
-            saveCachedJuzDetail(juzId, { detail: nextDetail, page: detailPage, hasMore: nextHasMore })
-            return nextDetail
+          if (!response.ok) {
+            throw new Error('Gagal memuat detail juz')
           }
 
-          const nextVerses = mapJuzVerses(result.data, currentDetail.verses.length + 1)
+          const result = (await response.json()) as QuranJuzResponse
 
-          if (!canAppendJuzVerses(currentDetail.verses, nextVerses)) {
-            setLoadMoreErrorPage(detailPage)
-            setHasMoreVerses(true)
-            return currentDetail
+          if (!result.status || !result.data) {
+            throw new Error('Response detail juz tidak valid')
           }
 
-          const mergedVerses = mergeUniqueJuzVerses(currentDetail.verses, nextVerses)
-          const totalVerses = currentDetail.totalVerses || getJuzTotalVerses(result, mergedVerses.length, juzId)
-          const nextHasMore = nextVerses.length > 0 && hasMoreDetailPages(result, mergedVerses.length, totalVerses)
-          const nextDetail = {
-            ...currentDetail,
-            verses: mergedVerses,
-            totalVerses,
+          const pageVerses = mapJuzVerses(result.data, allVerses.length + 1)
+          allVerses = mergeUniqueJuzVerses(allVerses, pageVerses)
+
+          if (!totalVerses) {
+            totalVerses = getJuzTotalVerses(result, allVerses.length, juzId)
           }
 
-          setHasMoreVerses(nextHasMore)
-          saveCachedJuzDetail(juzId, { detail: nextDetail, page: detailPage, hasMore: nextHasMore })
-          return nextDetail
-        })
+          const expected = totalVerses || result.pagination?.total || 0
+          if (allVerses.length >= expected || pageVerses.length === 0) {
+            hasMore = false
+          } else {
+            page++
+          }
+        }
+
+        const completeDetail: JuzDetail = {
+          id: juzId,
+          verses: allVerses,
+          totalVerses: totalVerses || allVerses.length,
+        }
+
+        setDetail(completeDetail)
+        saveCachedJuzDetail(juzId, { detail: completeDetail })
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
           return
         }
 
-        if (detailPage === 1) {
-          setLoadError(true)
-          setDetail(null)
-        } else {
-          setLoadMoreErrorPage(detailPage)
-          setHasMoreVerses(true)
-        }
+        setLoadError(true)
+        setDetail(null)
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false)
-          setLoadingMore(false)
-          nextPageRequestedRef.current = false
         }
       }
     }
 
-    loadJuzDetail()
+    loadAllJuzDetail()
 
     return () => controller.abort()
-  }, [juzId, detailPage, retryLoadMoreKey])
-
-  useEffect(() => {
-    if (scrollRestoreRef.current === null || !juzRootRef.current) {
-      return
-    }
-
-    const scrollTop = scrollRestoreRef.current
-    scrollRestoreRef.current = null
-
-    window.requestAnimationFrame(() => {
-      if (juzRootRef.current) {
-        juzRootRef.current.scrollTop = scrollTop
-      }
-    })
-  }, [detail?.verses.length])
+  }, [juzId, retryKey])
 
   useEffect(() => {
     if (!detail || !juzRootRef.current) {
@@ -1423,27 +1385,6 @@ function JuzDetailScreen({ juzId, onBack, onReadJuz }: { juzId: number; onBack: 
 
     return () => observer.disconnect()
   }, [detail, showTranslation])
-
-  useEffect(() => {
-    const root = juzRootRef.current
-
-    if (!root || loading || loadingMore || !hasMoreVerses || loadMoreErrorPage) {
-      return
-    }
-
-    function handleScroll() {
-      const distanceToBottom = root.scrollHeight - root.scrollTop - root.clientHeight
-
-      if (distanceToBottom < 240 && !nextPageRequestedRef.current) {
-        nextPageRequestedRef.current = true
-        setDetailPage((page) => page + 1)
-      }
-    }
-
-    root.addEventListener('scroll', handleScroll)
-
-    return () => root.removeEventListener('scroll', handleScroll)
-  }, [loading, loadingMore, hasMoreVerses, loadMoreErrorPage, detail?.verses.length])
 
   const selectedAudioVerse = detail?.verses.find((verse) => `${verse.surahId}:${verse.num}` === audioVerseKey)
   const fallbackAudioVerse = detail?.verses.find((verse) => verse.audioUrl)
@@ -1532,10 +1473,11 @@ function JuzDetailScreen({ juzId, onBack, onReadJuz }: { juzId: number; onBack: 
   const updateArabicFontSize = (nextSize: number) => setArabicFontSize(Math.min(40, Math.max(18, nextSize)))
 
   return (
-    <div ref={juzRootRef} className="animate-fade-in min-h-screen" style={{ background: 'var(--bg)', height: '100vh', overflowY: 'auto' }}>
+    <div ref={juzRootRef} className="animate-fade-in min-h-screen" style={{ background: 'var(--bg)', height: '100vh', overflowY: 'auto', paddingTop: '68px' }}>
       <div
-        className="sticky top-0 z-10 flex items-center justify-between px-4 py-4"
+        className="fixed top-0 left-1/2 -translate-x-1/2 w-full z-20 flex items-center justify-between px-4 py-4"
         style={{
+          maxWidth: 425,
           background: dark ? 'rgba(13,31,26,0.95)' : 'rgba(250,247,240,0.95)',
           backdropFilter: 'blur(12px)',
           borderBottom: '1px solid var(--border)',
@@ -1610,9 +1552,24 @@ function JuzDetailScreen({ juzId, onBack, onReadJuz }: { juzId: number; onBack: 
           <p className="serif-heading" style={{ color: 'var(--fg)', fontSize: '20px', fontWeight: 600, marginBottom: 8 }}>
             {loading ? 'Memuat detail juz' : 'Detail juz belum bisa dimuat'}
           </p>
-          <p style={{ color: 'var(--muted-fg)', fontSize: '13px', lineHeight: 1.7 }}>
-            {loading ? 'Mengambil data ayat dari API MyQuran.' : 'Silakan kembali ke daftar juz dan coba buka lagi.'}
+          <p style={{ color: 'var(--muted-fg)', fontSize: '13px', lineHeight: 1.7, marginBottom: 16 }}>
+            {loading ? 'Mengambil data ayat dari API MyQuran.' : 'Silakan periksa koneksi internet Anda atau coba lagi.'}
           </p>
+          {!loading && (
+            <button
+              onClick={() => setRetryKey((k) => k + 1)}
+              className="rounded-lg px-4 py-2"
+              style={{
+                background: 'rgba(201,168,76,0.12)',
+                border: '1px solid rgba(201,168,76,0.35)',
+                color: 'var(--primary)',
+                fontSize: '13px',
+                fontWeight: 600,
+              }}
+            >
+              Coba lagi
+            </button>
+          )}
         </div>
       ) : (
         <>
@@ -1765,30 +1722,6 @@ function JuzDetailScreen({ juzId, onBack, onReadJuz }: { juzId: number; onBack: 
                 )
               })
             )}
-            {loadingMore && (
-              <p style={{ color: 'var(--muted-fg)', textAlign: 'center', padding: '18px 0', fontSize: '12px' }}>Memuat ayat berikutnya...</p>
-            )}
-            {loadMoreErrorPage && (
-              <div className="px-2 py-6 text-center">
-                <p style={{ color: 'var(--muted-fg)', fontSize: '12px', lineHeight: 1.7, marginBottom: 12 }}>
-                  Halaman {loadMoreErrorPage} belum berhasil dimuat. Ayat berikutnya tidak akan dilanjutkan dulu agar urutan ayat tetap lengkap.
-                </p>
-                <button
-                  onClick={() => setRetryLoadMoreKey((key) => key + 1)}
-                  className="rounded-lg px-4 py-2"
-                  style={{
-                    background: 'rgba(201,168,76,0.12)',
-                    border: '1px solid rgba(201,168,76,0.35)',
-                    color: 'var(--primary)',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                  }}
-                >
-                  Coba muat lagi
-                </button>
-              </div>
-            )}
-            {!hasMoreVerses && !loadingMore && !loadMoreErrorPage && (
               <div
                 className="mt-6 rounded-2xl p-5"
                 style={{
@@ -1833,7 +1766,6 @@ function JuzDetailScreen({ juzId, onBack, onReadJuz }: { juzId: number; onBack: 
                   </button>
                 )}
               </div>
-            )}
           </div>
         </>
       )}
@@ -1898,9 +1830,7 @@ function ReadingScreen({ surahId, onBack, onReadSurah }: { surahId: number; onBa
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const visibleAyahsRef = useRef<Set<number>>(new Set())
   const lastObservedAyahRef = useRef<number | null>(null)
-  const scrollRestoreRef = useRef<number | null>(null)
   const initialTargetScrolledRef = useRef(false)
-  const nextPageRequestedRef = useRef(false)
   const [playing, setPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -1910,129 +1840,100 @@ function ReadingScreen({ surahId, onBack, onReadSurah }: { surahId: number; onBa
   const [showPlayer, setShowPlayer] = useState(true)
   const [activeVerse, setActiveVerse] = useState<number | null>(null)
   const [detail, setDetail] = useState<SurahDetail | null>(null)
-  const [detailPage, setDetailPage] = useState(1)
-  const [hasMoreVerses, setHasMoreVerses] = useState(true)
   const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
   const [loadError, setLoadError] = useState(false)
-  const [loadMoreErrorPage, setLoadMoreErrorPage] = useState<number | null>(null)
-  const [retryLoadMoreKey, setRetryLoadMoreKey] = useState(0)
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
-    const cachedDetail = getCachedSurahDetail(surahId)
-
-    setDetail(cachedDetail?.detail ?? null)
-    setDetailPage(cachedDetail?.page ?? 1)
-    setHasMoreVerses(cachedDetail?.hasMore ?? true)
-    setLoading(!cachedDetail)
     setActiveVerse(null)
     visibleAyahsRef.current = new Set()
     lastObservedAyahRef.current = null
-    scrollRestoreRef.current = null
     initialTargetScrolledRef.current = false
-    nextPageRequestedRef.current = false
-    setLoadMoreErrorPage(null)
-    setRetryLoadMoreKey(0)
-  }, [surahId])
 
-  useEffect(() => {
     const cachedDetail = getCachedSurahDetail(surahId)
 
-    if (cachedDetail && detailPage <= cachedDetail.page) {
+    if (cachedDetail) {
+      setDetail(cachedDetail.detail)
       setLoading(false)
-      setLoadingMore(false)
       setLoadError(false)
-      setLoadMoreErrorPage(null)
-      nextPageRequestedRef.current = false
       return
     }
 
+    setDetail(null)
+    setLoading(true)
+    setLoadError(false)
+
     const controller = new AbortController()
 
-    async function loadSurahDetail() {
+    async function loadAllSurahDetail() {
       try {
-        if (detailPage > 1 && readingRootRef.current) {
-          scrollRestoreRef.current = readingRootRef.current.scrollTop
-        }
+        let page = 1
+        let allVerses: DetailVerse[] = []
+        let surahInfo: Surah | null = null
+        let audioUrl: string | undefined = undefined
+        let hasMore = true
 
-        setLoading(detailPage === 1)
-        setLoadingMore(detailPage > 1)
-        setLoadError(false)
-        setLoadMoreErrorPage(null)
+        while (hasMore) {
+          const response = await fetch(`https://api.myquran.com/v3/quran/${surahId}?page=${page}&limit=100`, {
+            signal: controller.signal,
+          })
 
-        const response = await fetch(`https://api.myquran.com/v3/quran/${surahId}${detailPage > 1 ? `?page=${detailPage}` : ''}`, {
-          signal: controller.signal,
-        })
-
-        if (!response.ok) {
-          throw new Error('Gagal memuat detail surah')
-        }
-
-        const result = (await response.json()) as QuranDetailResponse
-
-        if (!result.status || !result.data) {
-          throw new Error('Response detail surah tidak valid')
-        }
-
-        const nextSurah = mapDetailSurah(result.data)
-        const nextVerses = mapDetailVerses(result.data)
-
-        setDetail((currentDetail) => {
-          if (detailPage === 1 || !currentDetail) {
-            const nextDetail = {
-              surah: nextSurah,
-              verses: nextVerses,
-              audioUrl: result.data.audio_url,
-            }
-            const nextHasMore = hasMoreDetailPages(result, nextDetail.verses.length, nextSurah.verses)
-
-            setHasMoreVerses(nextHasMore)
-            saveCachedSurahDetail(surahId, { detail: nextDetail, page: detailPage, hasMore: nextHasMore })
-            return nextDetail
+          if (!response.ok) {
+            throw new Error('Gagal memuat detail surah')
           }
 
-          if (!canAppendVerses(currentDetail.verses, nextVerses)) {
-            setLoadMoreErrorPage(detailPage)
-            setHasMoreVerses(true)
-            return currentDetail
+          const result = (await response.json()) as QuranDetailResponse
+
+          if (!result.status || !result.data) {
+            throw new Error('Response detail surah tidak valid')
           }
 
-          const mergedVerses = mergeUniqueVerses(currentDetail.verses, nextVerses)
-          const nextHasMore = nextVerses.length > 0 && hasMoreDetailPages(result, mergedVerses.length, currentDetail.surah.verses)
-          const nextDetail = {
-            ...currentDetail,
-            verses: mergedVerses,
+          if (!surahInfo) {
+            surahInfo = mapDetailSurah(result.data)
+            audioUrl = result.data.audio_url
           }
 
-          setHasMoreVerses(nextHasMore)
-          saveCachedSurahDetail(surahId, { detail: nextDetail, page: detailPage, hasMore: nextHasMore })
-          return nextDetail
-        })
+          const pageVerses = mapDetailVerses(result.data)
+          allVerses = mergeUniqueVerses(allVerses, pageVerses)
+
+          const totalExpected = surahInfo.verses || result.pagination?.total || 0
+          if (allVerses.length >= totalExpected || pageVerses.length === 0) {
+            hasMore = false
+          } else {
+            page++
+          }
+        }
+
+        if (!surahInfo) {
+          throw new Error('Data surah tidak valid')
+        }
+
+        const completeDetail: SurahDetail = {
+          surah: surahInfo,
+          verses: allVerses,
+          audioUrl,
+        }
+
+        setDetail(completeDetail)
+        saveCachedSurahDetail(surahId, { detail: completeDetail })
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
           return
         }
 
-        if (detailPage === 1) {
-          setLoadError(true)
-          setDetail(null)
-        } else {
-          setLoadMoreErrorPage(detailPage)
-          setHasMoreVerses(true)
-        }
+        setLoadError(true)
+        setDetail(null)
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false)
-          setLoadingMore(false)
-          nextPageRequestedRef.current = false
         }
       }
     }
 
-    loadSurahDetail()
+    loadAllSurahDetail()
 
     return () => controller.abort()
-  }, [surahId, detailPage, retryLoadMoreKey])
+  }, [surahId, retryKey])
 
   useEffect(() => {
     const targetAyah = getAyahFromSearch(window.location.search)
@@ -2051,21 +1952,6 @@ function ReadingScreen({ surahId, onBack, onReadSurah }: { surahId: number; onBa
       })
     }
   }, [detail, surahId])
-
-  useEffect(() => {
-    if (scrollRestoreRef.current === null || !readingRootRef.current) {
-      return
-    }
-
-    const scrollTop = scrollRestoreRef.current
-    scrollRestoreRef.current = null
-
-    window.requestAnimationFrame(() => {
-      if (readingRootRef.current) {
-        readingRootRef.current.scrollTop = scrollTop
-      }
-    })
-  }, [detail?.verses.length])
 
   useEffect(() => {
     if (!detail || !readingRootRef.current) {
@@ -2122,27 +2008,6 @@ function ReadingScreen({ surahId, onBack, onReadSurah }: { surahId: number; onBa
 
     return () => observer.disconnect()
   }, [detail, showTranslation])
-
-  useEffect(() => {
-    const root = readingRootRef.current
-
-    if (!root || loading || loadingMore || !hasMoreVerses || loadMoreErrorPage) {
-      return
-    }
-
-    function handleScroll() {
-      const distanceToBottom = root.scrollHeight - root.scrollTop - root.clientHeight
-
-      if (distanceToBottom < 240 && !nextPageRequestedRef.current) {
-        nextPageRequestedRef.current = true
-        setDetailPage((page) => page + 1)
-      }
-    }
-
-    root.addEventListener('scroll', handleScroll)
-
-    return () => root.removeEventListener('scroll', handleScroll)
-  }, [loading, loadingMore, hasMoreVerses, loadMoreErrorPage, detail?.verses.length])
 
   const audioUrl = detail?.audioUrl
 
@@ -2229,10 +2094,11 @@ function ReadingScreen({ surahId, onBack, onReadSurah }: { surahId: number; onBa
 
   if (loading || loadError || !detail) {
     return (
-      <div className="animate-fade-in min-h-screen" style={{ background: 'var(--bg)', height: '100vh', overflowY: 'auto' }}>
+      <div className="animate-fade-in min-h-screen" style={{ background: 'var(--bg)', height: '100vh', overflowY: 'auto', paddingTop: '68px' }}>
         <div
-          className="sticky top-0 z-10 flex items-center px-4 py-4"
+          className="fixed top-0 left-1/2 -translate-x-1/2 w-full z-20 flex items-center px-4 py-4"
           style={{
+            maxWidth: 425,
             background: dark ? 'rgba(13,31,26,0.95)' : 'rgba(250,247,240,0.95)',
             backdropFilter: 'blur(12px)',
             borderBottom: '1px solid var(--border)',
@@ -2246,9 +2112,24 @@ function ReadingScreen({ surahId, onBack, onReadSurah }: { surahId: number; onBa
           <p className="serif-heading" style={{ color: 'var(--fg)', fontSize: '20px', fontWeight: 600, marginBottom: 8 }}>
             {loading ? 'Memuat detail surah' : 'Detail surah belum bisa dimuat'}
           </p>
-          <p style={{ color: 'var(--muted-fg)', fontSize: '13px', lineHeight: 1.7 }}>
-            {loading ? 'Mengambil data ayat dari API MyQuran.' : 'Silakan kembali ke daftar surah dan coba buka lagi.'}
+          <p style={{ color: 'var(--muted-fg)', fontSize: '13px', lineHeight: 1.7, marginBottom: 16 }}>
+            {loading ? 'Mengambil data ayat dari API MyQuran.' : 'Silakan periksa koneksi internet Anda atau coba lagi.'}
           </p>
+          {!loading && (
+            <button
+              onClick={() => setRetryKey((k) => k + 1)}
+              className="rounded-lg px-4 py-2"
+              style={{
+                background: 'rgba(201,168,76,0.12)',
+                border: '1px solid rgba(201,168,76,0.35)',
+                color: 'var(--primary)',
+                fontSize: '13px',
+                fontWeight: 600,
+              }}
+            >
+              Coba lagi
+            </button>
+          )}
         </div>
       </div>
     )
@@ -2259,11 +2140,12 @@ function ReadingScreen({ surahId, onBack, onReadSurah }: { surahId: number; onBa
   const updateArabicFontSize = (nextSize: number) => setArabicFontSize(Math.min(40, Math.max(18, nextSize)))
 
   return (
-    <div ref={readingRootRef} className="animate-fade-in min-h-screen" style={{ background: 'var(--bg)', height: '100vh', overflowY: 'auto' }}>
+    <div ref={readingRootRef} className="animate-fade-in min-h-screen" style={{ background: 'var(--bg)', height: '100vh', overflowY: 'auto', paddingTop: '68px' }}>
       {/* Top bar */}
       <div
-        className="sticky top-0 z-10 flex items-center justify-between px-4 py-4"
+        className="fixed top-0 left-1/2 -translate-x-1/2 w-full z-20 flex items-center justify-between px-4 py-4"
         style={{
+          maxWidth: 425,
           background: dark ? 'rgba(13,31,26,0.95)' : 'rgba(250,247,240,0.95)',
           backdropFilter: 'blur(12px)',
           borderBottom: '1px solid var(--border)',
@@ -2479,30 +2361,6 @@ function ReadingScreen({ surahId, onBack, onReadSurah }: { surahId: number; onBa
             </button>
           ))
         )}
-        {loadingMore && (
-          <p style={{ color: 'var(--muted-fg)', textAlign: 'center', padding: '18px 0', fontSize: '12px' }}>Memuat ayat berikutnya...</p>
-        )}
-        {loadMoreErrorPage && (
-          <div className="px-2 py-6 text-center">
-            <p style={{ color: 'var(--muted-fg)', fontSize: '12px', lineHeight: 1.7, marginBottom: 12 }}>
-              Halaman {loadMoreErrorPage} belum berhasil dimuat. Ayat berikutnya tidak akan dilanjutkan dulu agar urutan ayat tetap lengkap.
-            </p>
-            <button
-              onClick={() => setRetryLoadMoreKey((key) => key + 1)}
-              className="rounded-lg px-4 py-2"
-              style={{
-                background: 'rgba(201,168,76,0.12)',
-                border: '1px solid rgba(201,168,76,0.35)',
-                color: 'var(--primary)',
-                fontSize: '12px',
-                fontWeight: 600,
-              }}
-            >
-              Coba muat lagi
-            </button>
-          </div>
-        )}
-        {!hasMoreVerses && !loadingMore && !loadMoreErrorPage && (
           <div
             className="mt-6 rounded-2xl p-5"
             style={{
@@ -2547,7 +2405,6 @@ function ReadingScreen({ surahId, onBack, onReadSurah }: { surahId: number; onBa
               </button>
             )}
           </div>
-        )}
       </div>
 
       {/* Audio Player */}
